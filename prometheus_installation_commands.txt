@@ -1,0 +1,105 @@
+
+# Prometheus Installation and Troubleshooting Commands
+
+## Step 1: Install Helm
+```bash
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+helm version
+```
+
+## Step 2: Add Prometheus Helm Chart Repository
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+```
+
+## Step 3: Install Prometheus
+```bash
+kubectl create namespace prometheus
+helm install prometheus prometheus-community/prometheus --namespace prometheus
+```
+
+## Step 4: Expose Prometheus via NodePort (Optional)
+```bash
+kubectl edit svc prometheus-server -n prometheus
+# Change `type: ClusterIP` to `type: NodePort` and set the nodePort value manually
+```
+
+## Step 5: Check Prometheus Pods
+```bash
+kubectl get pods -n prometheus
+```
+
+## Step 6: PVC Troubleshooting
+### Check PersistentVolumeClaims (PVCs):
+```bash
+kubectl get pvc -n prometheus
+```
+
+### Patch PVC with StorageClass
+```bash
+kubectl patch pvc <pvc-name> -n prometheus -p '{"spec": {"storageClassName": "manual"}}'
+```
+
+## Step 7: Create PersistentVolume (PV)
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prometheus-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+  storageClassName: "manual"
+```
+```bash
+kubectl apply -f prometheuspv.yaml
+```
+
+## Step 8: Access Prometheus Dashboard via Port Forwarding
+```bash
+kubectl port-forward -n prometheus svc/prometheus-server 9090:9090
+# Access Prometheus via http://localhost:9090
+```
+
+## Step 9: Check Logs for Troubleshooting
+### Check Prometheus Server Logs
+```bash
+kubectl logs <prometheus-server-pod> -n prometheus -c prometheus-server
+```
+
+### Check Prometheus Pod Description for Events
+```bash
+kubectl describe pod <prometheus-server-pod> -n prometheus
+```
+
+### Restart Prometheus Pod
+```bash
+kubectl delete pod <prometheus-server-pod> -n prometheus
+```
+
+## Step 10: Permissions Fix for `/data` Directory
+### Change Ownership of Mounted Directory
+```bash
+sudo chown -R nobody:nogroup /mnt/data
+```
+
+### Change Permissions of Mounted Directory
+```bash
+sudo chmod 777 /mnt/data
+```
+
+## Step 11: Monitor Resources
+```bash
+kubectl top pod <prometheus-server-pod> -n prometheus
+```
+
+## Step 12: Verify Prometheus StatefulSet Configuration
+```bash
+kubectl get statefulset prometheus-server -n prometheus
+kubectl describe statefulset prometheus-server -n prometheus
+```
